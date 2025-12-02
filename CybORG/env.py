@@ -8,6 +8,7 @@ import gym
 import numpy as np
 import pygame
 from gym.utils import seeding
+import types
 
 from CybORG.Simulator.SimulationController import SimulationController
 from CybORG.Shared import Observation, Results, CybORGLogger
@@ -66,12 +67,38 @@ class CybORG(CybORGLogger):
         seed : Union[int, CustomGenerator]
             optional seed for random number generator
         """
+        # CC4: GUI not implemented for CC4, disable GUI by default to avoid GUI-related attributes
+        # being accessed when running in non-GUI contexts (notebooks, scripts).
+        self._disable_gui = True
+        
         assert issubclass(type(scenario_generator),
                           ScenarioGenerator), f'Scenario generator object of type {type(scenario_generator)} must be a subclass of ScenarioGenerator'
         self.scenario_generator = scenario_generator
         self._log_info(f"Using scenario generator {str(scenario_generator)}")
         if seed is None or isinstance(seed, int):
-            self.np_random, seed = seeding.np_random(seed)
+            rs, seed = seeding.np_random(seed)
+            # Prefer the newer Generator API when possible (has `integers`). Fall back to RandomState.
+            try:
+                self.np_random = np.random.default_rng(seed)
+            except Exception:
+                self.np_random = rs
+            # If we fell back to RandomState, add a compatibility `integers` method so
+            # code expecting numpy.random.Generator.integers() still works.
+            try:
+                from numpy.random import mtrand
+                if isinstance(self.np_random, mtrand.RandomState) and not hasattr(self.np_random, 'integers'):
+                    def _integers(low, high=None, size=None, dtype=None, endpoint=False):
+                        # Match Generator.integers signature loosely using RandomState.randint
+                        if high is None:
+                            # integers(n) -> 0..n-1
+                            return self.np_random.randint(low, size=size)
+                        if endpoint:
+                            return self.np_random.randint(low, high + 1, size=size)
+                        return self.np_random.randint(low, high, size=size)
+                    # Bind as attribute on the instance
+                    self.np_random.integers = types.MethodType(lambda self, *a, **k: _integers(*a, **k), self.np_random)
+            except Exception:
+                pass
         else:
             self.np_random = seed
         self.environment_controller = SimulationController(self.scenario_generator, agents, self.np_random)

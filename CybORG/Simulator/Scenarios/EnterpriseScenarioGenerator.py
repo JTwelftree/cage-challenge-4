@@ -347,7 +347,11 @@ class EnterpriseScenarioGenerator(ScenarioGenerator):
             host_list.append(self._generate_linux_host(hostname, ip_address, subnet))
 
             # generate user hosts
-            num_user_hosts = self.np_random.integers(self.MIN_USER_HOSTS, self.MAX_USER_HOSTS, endpoint=True)
+            try:
+                num_user_hosts = self.np_random.integers(self.MIN_USER_HOSTS, self.MAX_USER_HOSTS, endpoint=True)
+            except AttributeError:
+                # numpy.random.RandomState doesn't have `integers` (it has `randint`), make compatible
+                num_user_hosts = self.np_random.randint(self.MIN_USER_HOSTS, self.MAX_USER_HOSTS + 1)
             for i in range(num_user_hosts):
                 hostname = f"{subnet.name}_user_host_{i}"
                 subnet.hosts.append(hostname)
@@ -357,7 +361,10 @@ class EnterpriseScenarioGenerator(ScenarioGenerator):
                 host_list.append(self._generate_linux_host(hostname, ip_address, subnet))
 
             # generate servers
-            num_server_hosts = self.np_random.integers(self.MIN_SERVER_HOSTS, self.MAX_SERVER_HOSTS, endpoint=True)
+            try:
+                num_server_hosts = self.np_random.integers(self.MIN_SERVER_HOSTS, self.MAX_SERVER_HOSTS, endpoint=True)
+            except AttributeError:
+                num_server_hosts = self.np_random.randint(self.MIN_SERVER_HOSTS, self.MAX_SERVER_HOSTS + 1)
             for i in range(num_server_hosts):
                 hostname = f"{subnet.name}_server_host_{i}"
                 ip_address = ip_addresses.pop()
@@ -555,7 +562,10 @@ class EnterpriseScenarioGenerator(ScenarioGenerator):
         }
         # Choose a random number of the optional services
         max_addon_services = min(len(addon_services_options), self.MAX_ADDON_SERVICES)
-        num_addon_services = self.np_random.integers(0, max_addon_services, endpoint=True)
+        try:
+            num_addon_services = self.np_random.integers(0, max_addon_services, endpoint=True)
+        except AttributeError:
+            num_addon_services = self.np_random.randint(0, max_addon_services + 1)
         for _ in range(num_addon_services):
             choice = self.np_random.choice(list(addon_services_options.keys()))
             services[choice] = addon_services_options.pop(choice)
@@ -572,7 +582,10 @@ class EnterpriseScenarioGenerator(ScenarioGenerator):
             The new process ID.
         """
         while True:
-            pid = self.np_random.integers(1000, 10000)  # generate a random 4-digit number
+            try:
+                pid = self.np_random.integers(1000, 10000)  # generate a random 4-digit number
+            except AttributeError:
+                pid = self.np_random.randint(1000, 10000)
             if pid not in self.used_pids:  # check if the generated PID is not in the used_pids list
                 self.used_pids.append(pid)
                 return pid  # if not, return the generated PID
